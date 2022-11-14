@@ -7,13 +7,12 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /* \contract YoloDealer
  * \Ingroup  contracts
  * \brief    A smart contract for lottery dealing
- * 
+ *
  * This class deals the lottery contracts and set consumers to rng.
  * RNG is consumed internally which only the dealer can control
  * who the consumer is for security and safty.
  *
  * Once game is created, it will broadcast to blockchain.
- *
  */
 contract YoloDealer is Ownable {
 
@@ -42,7 +41,7 @@ contract YoloDealer is Ownable {
 
     /// set the capcity of rngs, which is also number of games allowed
     function setRNGCapacity(uint256 capacity_, bool preserve) onlyOwner public {
-        if ( preserve ) {
+        if ( preserve && rngs.length > 0 ) {
             for ( uint256 i = rngs.length-1; i >= capacity_; --i ) {
                 delete rngs[i];
             }
@@ -72,7 +71,7 @@ contract YoloDealer is Ownable {
     /// create the rng based on provider specified
     function getYoloRng() onlyOwner internal returns(address) {
         require( capacity > 0, "Set capcity to be > 0" );
-        
+
         for ( uint256 i = 0; i < capacity; ++i ) {
             if ( rngs[i] == address(0x0) ) {
                 address rng = createYoloRng();
@@ -80,16 +79,15 @@ contract YoloDealer is Ownable {
 
                 return rng;
             }
-            else {
-                if ( YoloRandom(rngs[i]).isAvailable() ) {
-                    return rngs[i];
-                }
+
+            if ( YoloRandom(rngs[i]).isAvailable() ) {
+                return rngs[i];
             }
         }
 
         require(false, "Capacity full. Cannot request more RNGs");
-        
-        return address(0x0); // just to supress the warning, never hit
+
+        return address(0x0);
     }
 
     /// create the rng based on provider specified
@@ -97,7 +95,7 @@ contract YoloDealer is Ownable {
         if ( rngProvider == YoloRandomProvider.Mockup ) {
             return address(new YoloRandomMockup(address(this)));
         }
-        
+
         if ( rngProvider == YoloRandomProvider.Chainlink ) {
             // TODO: deposit Chainlink to the contract
             return address(new YoloRandomChainlink(address(this)));
@@ -106,5 +104,5 @@ contract YoloDealer is Ownable {
         require(false, "Unknow RNG provider");
 
         return address(0x0); // just to supress the warning, never hit
-    }    
-}        
+    }
+}

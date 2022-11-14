@@ -10,7 +10,7 @@ import { ERRORS } from "./core/errors-list";
 import { TasksDSL } from "./core/tasks/dsl";
 import { getRequireCachedFiles } from "./util/platform";
 
-export type GlobalWithHardhatContext = NodeJS.Global & {
+export type GlobalWithHardhatContext = typeof global & {
   __hardhatContext: HardhatContext;
 };
 
@@ -51,7 +51,8 @@ export class HardhatContext {
 
   // NOTE: This is experimental and will be removed. Please contact our team if
   // you are planning to use it.
-  public readonly experimentalHardhatNetworkMessageTraceHooks: ExperimentalHardhatNetworkMessageTraceHook[] = [];
+  public readonly experimentalHardhatNetworkMessageTraceHooks: ExperimentalHardhatNetworkMessageTraceHook[] =
+    [];
   private _filesLoadedBeforeConfig?: string[];
   private _filesLoadedAfterConfig?: string[];
 

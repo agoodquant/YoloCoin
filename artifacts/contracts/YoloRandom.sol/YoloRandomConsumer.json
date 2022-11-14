@@ -6,14 +6,14 @@
     {
       "inputs": [
         {
-          "internalType": "bytes32",
+          "internalType": "uint256",
           "name": "requestId",
-          "type": "bytes32"
+          "type": "uint256"
         },
         {
-          "internalType": "uint256",
+          "internalType": "uint256[]",
           "name": "randomness",
-          "type": "uint256"
+          "type": "uint256[]"
         }
       ],
       "name": "consume",

@@ -6,17 +6,17 @@
     {
       "inputs": [
         {
-          "internalType": "bytes32",
+          "internalType": "uint256",
           "name": "requestId",
-          "type": "bytes32"
+          "type": "uint256"
         }
       ],
       "name": "getRandomNumber",
       "outputs": [
         {
-          "internalType": "uint256",
+          "internalType": "uint256[]",
           "name": "",
-          "type": "uint256"
+          "type": "uint256[]"
         }
       ],
       "stateMutability": "view",
@@ -36,13 +36,19 @@
       "type": "function"
     },
     {
-      "inputs": [],
+      "inputs": [
+        {
+          "internalType": "uint16",
+          "name": "numRandom",
+          "type": "uint16"
+        }
+      ],
       "name": "requestRandomNumber",
       "outputs": [
         {
-          "internalType": "bytes32",
+          "internalType": "uint256",
           "name": "",
-          "type": "bytes32"
+          "type": "uint256"
         }
       ],
       "stateMutability": "nonpayable",
