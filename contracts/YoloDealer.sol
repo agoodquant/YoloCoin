@@ -62,7 +62,7 @@ contract YoloDealer is Ownable {
     function getYoloLottery() onlyOwner public {
         address rng = getYoloRng();
 
-        YoloLot yoloLot = new YoloLot(address(rng), yoloCoin);
+        YoloLot yoloLot = new YoloLot(msg.sender, address(rng), yoloCoin);
         YoloRandom(rng).setConsumer(address(yoloLot));
 
         emit YoloLotCreated(msg.sender, address(yoloLot));
