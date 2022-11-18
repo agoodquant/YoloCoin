@@ -94,6 +94,7 @@ contract YoloLot is YoloRandomConsumer {
 
         issueDate = block.timestamp;
         expiryDate = issueDate + 7 days;
+        lastRequest = 0x0;
 
         // wipe out the players
         for ( uint256 i = 0; i < players.length; ++i)
