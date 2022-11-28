@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import "./YoloCoin.sol";
@@ -27,6 +28,10 @@ contract YoloLot is YoloRandomConsumer {
 
     address[] players;
 
+    address[] winners;
+
+    uint256[] rewards;
+
     uint totalPool;
 
     address yoloDealer;
@@ -37,9 +42,7 @@ contract YoloLot is YoloRandomConsumer {
 
     uint expiryDate;
 
-    mapping(address=>uint) rewards;
-
-    address[] winners;
+    mapping(address=>uint) rewardsDict;
 
     uint256 lastRequest;
 
@@ -53,8 +56,8 @@ contract YoloLot is YoloRandomConsumer {
 
     uint8 numSmallWinners;
 
-    constructor(address dealerAdress, address randomAddress, address yoloCoin) {
-        yoloDealer = dealerAdress;
+    constructor(address randomAddress, address yoloCoin) {
+        yoloDealer = msg.sender;
         yoloRandom = randomAddress;
         token = IERC20(yoloCoin);
 
@@ -76,12 +79,12 @@ contract YoloLot is YoloRandomConsumer {
     }
 
     modifier onlyWinner() {
-        require(rewards[msg.sender] > 0);
+        require(rewardsDict[msg.sender] > 0);
         _;
     }
 
     modifier onlyRNG() {
-        require(yoloRandom == msg.sender) ;
+        require(yoloRandom == msg.sender);
         _;
     }
 
@@ -99,7 +102,7 @@ contract YoloLot is YoloRandomConsumer {
         // wipe out the players
         for ( uint256 i = 0; i < players.length; ++i)
         {
-            pool[players[i]] = 0;
+            delete pool[players[i]];
         }
 
         delete players;
@@ -122,20 +125,19 @@ contract YoloLot is YoloRandomConsumer {
         totalPool += amount;
     }
 
-    /// draw the winner, anyone can draw once expired
-    function draw() public expire {
-        require(lastRequest == 0x0, "Can only draw once");
+    /// roll the dice, anyone can roll once expired
+    function roll() public expire {
+        require(lastRequest == 0x0, "Can only roll once");
         uint8 totalWinners = numSmallWinners+numBigWinners;
         lastRequest = YoloRandom(yoloRandom).requestRandomNumber(totalWinners);
 
-        confirm();
         emit YoloLotDraw();
     }
 
-    /// confirm the winner, used in case call back fails
-    function confirm() public expire {
+    /// draw the winner, used in case call back fails
+    function draw() public expire {
         uint256[] memory randomness = YoloRandom(yoloRandom).getRandomNumber(lastRequest);
-        finalize(randomness);
+        drawInternal(randomness);
     }
 
     /// withdraw the pool token to winner
@@ -145,6 +147,7 @@ contract YoloLot is YoloRandomConsumer {
 
     /// withdraw all the pool tokens to winners
     function withdrawAll() public expire {
+        require(winners.length > 0, "Not draw yet");
         for (uint256 i = 0; i < winners.length; ++i)
         {
             withdrawFor(winners[i]);
@@ -152,7 +155,7 @@ contract YoloLot is YoloRandomConsumer {
     }
 
     function withdrawFor(address winner) private expire {
-        uint256 reward = rewards[winner];
+        uint256 reward = rewardsDict[winner];
 
         if (reward == 0) {
             return;
@@ -160,7 +163,8 @@ contract YoloLot is YoloRandomConsumer {
 
         token.transferFrom(address(this), winner, reward);
         totalPool -= reward;
-        rewards[winner] = 0;
+
+        delete rewardsDict[winner];
 
         emit YoloLotWithDraw(winner, reward);
     }
@@ -174,11 +178,13 @@ contract YoloLot is YoloRandomConsumer {
     function consume(uint256 requestId_, uint256[] memory randomness) onlyRNG expire public override {
         require(lastRequest == requestId_);
 
-        finalize(randomness);
+        drawInternal(randomness);
     }
 
-    /// finalize the winner
-    function finalize(uint256[] memory randomness) private {
+    /// draw the winners
+    function drawInternal(uint256[] memory randomness) private {
+        require(winners.length == 0, "Cannot draw more than once");
+
         uint8 totalWinners = numSmallWinners+numBigWinners;
         assert(randomness.length == totalWinners);
 
@@ -191,9 +197,6 @@ contract YoloLot is YoloRandomConsumer {
             runPool[i] = runSum;
         }
 
-        // array for rewards
-        uint256[] memory rewards_ = new uint256[]( totalWinners + 1 );
-
         // 89.7% goes to big winners
         uint256 big_reward = totalPool * 897 / (1000 * numBigWinners);
         for (uint8 i = 0; i < numBigWinners; ++i)
@@ -202,7 +205,7 @@ contract YoloLot is YoloRandomConsumer {
             uint256 win_i = findUpperBound( runPool, random_i );
 
             winners.push( players[win_i] );
-            rewards_[i] = big_reward;
+            rewards.push( big_reward );
         }
 
         // 10% goes to small winners
@@ -213,21 +216,21 @@ contract YoloLot is YoloRandomConsumer {
             uint256 win_i = findUpperBound( runPool, random_i );
 
             winners.push( players[win_i] );
-            rewards_[i] = small_reward;
+            rewards.push( small_reward );
         }
 
         // 0.3% go to dealer for RNGs
         uint dealer_cut = totalPool - big_reward * numBigWinners - small_reward * numSmallWinners;
         winners.push( yoloDealer );
-        rewards_[totalWinners] = dealer_cut;
+        rewards.push( dealer_cut );
 
         // iterate through the array for mapping
         for (uint8 i = 0; i < winners.length; ++i)
         {
-            rewards[winners[i]] = rewards_[i];
+            rewardsDict[winners[i]] = rewards[i];
         }
 
-        emit YoloLotWinner(winners, rewards_);
+        emit YoloLotWinner(winners, rewards);
     }
 
     // copy-paste implementation from openzeppline due to no memory signature availability
@@ -257,5 +260,22 @@ contract YoloLot is YoloRandomConsumer {
         } else {
             return low;
         }
+    }
+}
+
+/* \contract YoloLotFactory
+ * \Ingroup  contracts
+ * \brief    A factory class to initiate new YoloLot contract
+ *
+ * Solidty will include the whole class if "new" is used.
+ * Hence breaking the size of the smart contract.
+ *
+ * A factory method will help avoid this problem.
+ */
+contract YoloLotFactory
+{
+    function createYoloLottery(address rng, address yoloCoin) public returns(address) {
+        YoloLot yoloLot = new YoloLot(rng, yoloCoin);
+        return address(yoloLot);
     }
 }

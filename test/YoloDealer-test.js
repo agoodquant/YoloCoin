@@ -13,7 +13,16 @@ async function deployYoloDealerContract() {
   const yoloDealer = await YoloDealer.deploy();
   await yoloDealer.deployed();
 
-  await yoloDealer.setRandomProvider(0);
+  const YoloRNG = await ethers.getContractFactory("YoloRandomFactory");
+  const yoloRNG = await YoloRNG.deploy();
+  await yoloRNG.deployed();
+
+  const YoloLot = await ethers.getContractFactory("YoloLotFactory");
+  const yoloLot = await YoloLot.deploy();
+  await yoloLot.deployed();
+
+  await yoloDealer.setYoloLot(yoloLot.address);
+  await yoloDealer.setRandomProvider(0, yoloRNG.address);
   await yoloDealer.setRNGCapacity(2, true);
   await yoloDealer.setYoloCoin(yoloCoin.address);
 
@@ -21,7 +30,7 @@ async function deployYoloDealerContract() {
 };
 
 describe("YoloDealer", function () {
-  it("Test yolo dealer and lottery", async function () {
+  it("Test yolo dealer", async function () {
     // setup dealer
     const {yoloDealer} = await loadFixture(deployYoloDealerContract);
     console.log("dealer: " + yoloDealer.address);

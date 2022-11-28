@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import "hardhat/console.sol";
@@ -78,7 +79,7 @@ contract SimpleCharity {
             // me.prev -> prev
             donor.prev = currDonor.prev;
         }
-        
+
         // curr.prev -> me
         currDonor.prev = msg.sender;
 

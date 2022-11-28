@@ -3,7 +3,7 @@ const { expect } = require("chai");
 const { deployYoloDealerContract } = require("./YoloDealer-test");
 
 describe("YoloLot", function () {
-  it("Test yolo dealer and lottery", async function () {
+  it("Test yolo lottery", async function () {
     // setup dealer, bank, and ERC20 tokens
     const {yoloDealer, yoloBank, yoloCoin} = await loadFixture(deployYoloDealerContract);
 

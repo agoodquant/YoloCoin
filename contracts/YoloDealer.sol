@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import "./YoloLot.sol";
@@ -20,6 +21,10 @@ contract YoloDealer is Ownable {
 
     YoloRandomProvider rngProvider;
 
+    address rngFactory;
+
+    address lotFactory;
+
     address[] rngs;
 
     uint256 capacity;
@@ -30,8 +35,14 @@ contract YoloDealer is Ownable {
     }
 
     /// set the rng provider
-    function setRandomProvider(YoloRandomProvider rngProvider_) onlyOwner public {
+    function setRandomProvider(YoloRandomProvider rngProvider_, address rngFactory_) onlyOwner public {
         rngProvider = rngProvider_;
+        rngFactory = rngFactory_;
+    }
+
+    /// set the yolo lottery factory address
+    function setYoloLot(address lotFactory_) onlyOwner public {
+        lotFactory = lotFactory_;
     }
 
     /// set address of yoloCoin
@@ -60,12 +71,11 @@ contract YoloDealer is Ownable {
 
     /// create the lottery contract and broadcast
     function getYoloLottery() onlyOwner public {
-        address rng = getYoloRng();
+        address rng = YoloRandomFactory(rngFactory).createYoloRng(rngProvider);
+        address yoloLot = YoloLotFactory(lotFactory).createYoloLottery(rng, yoloCoin);
+        YoloRandom(rng).setConsumer(yoloLot);
 
-        YoloLot yoloLot = new YoloLot(msg.sender, address(rng), yoloCoin);
-        YoloRandom(rng).setConsumer(address(yoloLot));
-
-        emit YoloLotCreated(msg.sender, address(yoloLot));
+        emit YoloLotCreated(msg.sender, yoloLot);
     }
 
     /// create the rng based on provider specified
@@ -74,7 +84,7 @@ contract YoloDealer is Ownable {
 
         for ( uint256 i = 0; i < capacity; ++i ) {
             if ( rngs[i] == address(0x0) ) {
-                address rng = createYoloRng();
+                address rng = YoloRandomFactory(rngFactory).createYoloRng(rngProvider);
                 rngs[i] = rng;
 
                 return rng;
@@ -88,21 +98,5 @@ contract YoloDealer is Ownable {
         require(false, "Capacity full. Cannot request more RNGs");
 
         return address(0x0);
-    }
-
-    /// create the rng based on provider specified
-    function createYoloRng() onlyOwner internal returns(address) {
-        if ( rngProvider == YoloRandomProvider.Mockup ) {
-            return address(new YoloRandomMockup(address(this)));
-        }
-
-        if ( rngProvider == YoloRandomProvider.Chainlink ) {
-            // TODO: deposit Chainlink to the contract
-            return address(new YoloRandomChainlink(address(this)));
-        }
-
-        require(false, "Unknow RNG provider");
-
-        return address(0x0); // just to supress the warning, never hit
     }
 }

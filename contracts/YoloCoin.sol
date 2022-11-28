@@ -1,7 +1,9 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 /* \contract YoloCoin
  * \Ingroup  contracts
@@ -43,39 +45,84 @@ contract YoloCoin is ERC20 {
  * Through YoloBank player can purchase YoloCoins.
  * Initial coin offering is in ETH/Wei.
  */
-contract YoloBank {
+contract YoloBank is Ownable {
     IERC20 public token;
 
     /// represented as divisor against ETH
     uint256 icoPrice;
 
+    /// circulation of token released
+    uint256 icoTarget;
+
+    /// ico end time
+    uint256 icoEndTime;
+
     event Bought(uint256 amount);
 
-    event Sold(uint256 amount);
+    event LaunchICO(uint256 icoPrice, uint256 icoTarget, uint256 icoEndTime);
+
+    modifier notExpire() {
+        require(block.timestamp <= icoEndTime, "Please wait for next ICO");
+        _;
+    }
+
+    modifier expire() {
+        require(block.timestamp > icoEndTime, "Existing ICO not finsihed yet");
+        _;
+    }
 
     constructor(string memory symbol) {
         token = new YoloCoin(symbol);
-        icoPrice = 10 ** 4;
 
-        // gennesis get 10%
-        token.transfer(msg.sender, token.totalSupply() / 10);
+        // avoid multiple directional call
+        uint256 totalSupply = token.totalSupply();
+
+        // owner get 15%
+        token.transfer(msg.sender, totalSupply * 3 / 20);
     }
 
-    function buy() payable public {
-        uint256 amount = msg.value;
+    function getCurrentPrice() public notExpire view returns(uint256) {
+        return icoPrice;
+    }
+
+    function getCurrentTarget() public notExpire view returns(uint256) {
+        return icoTarget;
+    }
+
+    function getCurrentEndTime() public view returns(uint256) {
+        return icoEndTime;
+    }
+
+    function launch(uint256 price, uint256 target, uint256 icoPeriod) public onlyOwner expire {
+        require(price > 0, "Set an ICO price");
+        require(target > 0, "Set an ICO target");
+
         uint256 balance = token.balanceOf(address(this));
-        require(amount > 0, "You need to send some ether");
-        require(amount <= balance, "Not enough tokens in bank");
-        token.transfer(msg.sender, amount * icoPrice);
-        emit Bought(amount);
+        require(target <= balance, "Not enough tokens in the bank for ICO target");
+
+        icoPrice = price;
+        icoTarget = target;
+        icoEndTime = block.timestamp + icoPeriod;
+
+        emit LaunchICO(icoPrice, icoTarget, icoEndTime);
     }
 
-    function sell(uint256 amount) public {
-        require(amount > 0, "You need to sell at least some tokens");
-        uint256 allowance = token.allowance(msg.sender, address(this));
-        require(allowance > amount, "Check the balance of your tokens");
-        token.transferFrom(msg.sender, address(this), amount);
-        payable(msg.sender).transfer(amount / icoPrice);
-        emit Sold(amount);
+    function buy() payable public notExpire {
+        uint256 amount = msg.value;
+        require(amount > 0, "You need to send some ether");
+
+        uint256 tokensToBuy = amount * icoPrice;
+        require(tokensToBuy <= icoTarget, "Amount to buy exceed ICO target. Try buying less tokens");
+
+        uint256 balance = token.balanceOf(address(this));
+        require(tokensToBuy <= balance, "Not enough tokens in the bank.");
+
+        token.transfer(msg.sender, tokensToBuy);
+        icoTarget -= tokensToBuy;
+        emit Bought(tokensToBuy);
+    }
+
+    function extractEther() public onlyOwner {
+        payable(owner()).transfer(address(this).balance);
     }
 }

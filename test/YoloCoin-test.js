@@ -1,5 +1,6 @@
 const { loadFixture } = require("@ethereum-waffle/provider");
 const { expect } = require("chai");
+const { network } = require("hardhat");
 
 async function deployYoloCoinContract() {
   const [bank] = await ethers.getSigners();
@@ -11,13 +12,13 @@ async function deployYoloCoinContract() {
 
   // setup YoloCoin
   const YoloCoin = await ethers.getContractFactory("YoloCoin");
-  const yoloCoin = await YoloCoin.attach(yoloBank.token());
+  const yoloCoin = await YoloCoin.attach(await yoloBank.token());
 
   return {yoloBank, yoloCoin};
 };
 
 describe("YoloCoin", function () {
-  it("Test yolo dealer and lottery", async function () {
+  it("Test yolo bank and coin", async function () {
     // setup YoloBank
     const {yoloBank, yoloCoin} = await loadFixture(deployYoloCoinContract);
 
@@ -25,10 +26,22 @@ describe("YoloCoin", function () {
     console.log("coin:" + yoloCoin.address);
 
     let decimals = await yoloCoin.decimals();
-    console.log("Decimals: " + decimals);
+    expect(decimals).to.equal(18);
 
     // setup buyer
-    const [, , account1, account2] = await ethers.getSigners();
+    const [bank, , account1, account2] = await ethers.getSigners();
+
+    // ico
+    // ICO at $20,000,000
+    // 1,000,000,000 * x = 20,000,000
+    // x = 20,000,000 / 1,0000,000,000 = 2 cent per coin
+    // 1 ETH is $1,500 = 75,000 coin
+    let icoPrice = 75000;
+    let ownerAsAccount = yoloBank.connect(bank);
+    await ownerAsAccount.launch(icoPrice, ethers.utils.parseUnits("500000000", decimals), 100);
+    await ownerAsAccount.getCurrentPrice().then( x => console.log("CurrentP rice: " + x ) );
+    await ownerAsAccount.getCurrentTarget().then( x => console.log("Current Target: " + x ) );
+    await ownerAsAccount.getCurrentTarget().then( x => console.log("Current ICO EndTime: " + x ) );
 
     // buy tokens
     let runAsAccount1 = yoloBank.connect(account1);
@@ -40,20 +53,24 @@ describe("YoloCoin", function () {
     await yoloCoin.balanceOf( account1.address ).then( x => console.log("Player1 Balance: " + x ) );
     await yoloCoin.balanceOf( account2.address ).then( x => console.log("Player2 Balance: " + x ) );
     await yoloCoin.balanceOf( yoloBank.address ).then( x => console.log("Bank Reserve: " + x ) );
+    await ownerAsAccount.getCurrentTarget().then( x => console.log("Current Target: " + x ) );
 
-    // sell tokens
-    let tokenAsAccount1 = yoloCoin.connect(account1);
-    await tokenAsAccount1.increaseAllowance(yoloBank.address, ethers.utils.parseUnits("0.6", decimals));
-    await runAsAccount1.sell(ethers.utils.parseUnits("0.5", decimals));
+    // owners extract tokens
+    await ethers.provider.getBalance( bank.address ).then( x => console.log("Owner wealth prior withdrawal: " + x ) );
+    await ownerAsAccount.extractEther();
+    await ethers.provider.getBalance( bank.address ).then( x => console.log("Owner wealth post withdrawal: " + x ) );
 
-    let tokenAsAccount2 = yoloCoin.connect(account2);
-    await tokenAsAccount2.increaseAllowance(yoloBank.address, ethers.utils.parseUnits("0.6", decimals));
-    await runAsAccount2.sell(ethers.utils.parseUnits("0.5", decimals));
+    // owners set new ICO price
+    expect(await runAsAccount1.getCurrentPrice()).to.equal(75000);
 
-    console.log("After selling some tokens");
-    await yoloCoin.balanceOf( account1.address ).then( x => console.log("Player1 Balance: " + x ) );
-    await yoloCoin.balanceOf( account2.address ).then( x => console.log("Player2 Balance: " + x ) );
-    await yoloCoin.balanceOf( yoloBank.address ).then( x => console.log("Bank Reserve: " + x ) );
+    await network.provider.send("evm_increaseTime", [101]);
+    await network.provider.send("evm_mine");
+    await ownerAsAccount.launch(100000, 100, 3600);
+    expect(await runAsAccount1.getCurrentPrice()).to.equal(100000);
+
+    await network.provider.send("evm_increaseTime", [3601]);
+    await network.provider.send("evm_mine");
+    await ownerAsAccount.launch(75000, ethers.utils.parseUnits("1000000", decimals), 10000000);
   });
 });
 

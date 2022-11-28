@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
@@ -16,7 +17,6 @@ import "@chainlink/contracts/src/v0.8/ConfirmedOwner.sol";
 abstract contract YoloRandomConsumer {
     function consume(uint256 requestId, uint256[] memory randomness) public virtual;
 }
-
 
 enum YoloRandomProvider {
     Mockup,
@@ -50,7 +50,7 @@ abstract contract YoloRandom {
 
     modifier onlyDealer()
     {
-        require( msg.sender == dealer);
+        require( msg.sender == dealer, "Only YoloDealer is allowed to set consumer");
         _;
     }
 
@@ -212,5 +212,32 @@ contract YoloRandomChainlink is YoloRandom, VRFV2WrapperConsumerBase, ConfirmedO
     function withdrawLink() public onlyOwner {
         LinkTokenInterface link = LinkTokenInterface(linkAddress);
         require(link.transfer(msg.sender, link.balanceOf(address(this))), 'Unable to transfer');
+    }
+}
+
+/* \contract YoloRandomFactory
+ * \Ingroup  contracts
+ * \brief    A factory class to initiate new YoloRandom contract
+ *
+ * Solidty will include the whole class if "new" is used.
+ * Hence breaking the size of the smart contract.
+ *
+ * A factory method will help avoid this problem.
+ */
+contract YoloRandomFactory
+{
+    function createYoloRng( YoloRandomProvider rngProvider ) public returns (address) {
+        if ( rngProvider == YoloRandomProvider.Mockup ) {
+            return address(new YoloRandomMockup(msg.sender));
+        }
+
+        if ( rngProvider == YoloRandomProvider.Chainlink ) {
+            // TODO: deposit Chainlink to the contract
+            return address(new YoloRandomChainlink(msg.sender));
+        }
+
+        require(false, "Unknow RNG provider");
+
+        return address(0x0); // just to supress the warning, never hit
     }
 }
