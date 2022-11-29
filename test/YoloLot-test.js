@@ -38,5 +38,6 @@ describe("YoloLot", function () {
 
     await gameAccount1.viewPool().then( x => console.log("Player1 Pool Size: " + x ) );
     await gameAccount2.viewPool().then( x => console.log("Player2 Pool Size: " + x ) );
+    await gameAccount1.totalPool().then( x => console.log("Total Pool Size: " + x) );
   });
 });

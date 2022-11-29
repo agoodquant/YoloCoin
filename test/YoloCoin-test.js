@@ -39,9 +39,9 @@ describe("YoloCoin", function () {
     let icoPrice = 75000;
     let ownerAsAccount = yoloBank.connect(bank);
     await ownerAsAccount.launch(icoPrice, ethers.utils.parseUnits("500000000", decimals), 100);
-    await ownerAsAccount.getCurrentPrice().then( x => console.log("CurrentP rice: " + x ) );
-    await ownerAsAccount.getCurrentTarget().then( x => console.log("Current Target: " + x ) );
-    await ownerAsAccount.getCurrentTarget().then( x => console.log("Current ICO EndTime: " + x ) );
+    await ownerAsAccount.icoPrice().then( x => console.log("CurrentP rice: " + x ) );
+    await ownerAsAccount.icoTarget().then( x => console.log("Current Target: " + x ) );
+    await ownerAsAccount.icoEndTime().then( x => console.log("Current ICO EndTime: " + x ) );
 
     // buy tokens
     let runAsAccount1 = yoloBank.connect(account1);
@@ -53,7 +53,7 @@ describe("YoloCoin", function () {
     await yoloCoin.balanceOf( account1.address ).then( x => console.log("Player1 Balance: " + x ) );
     await yoloCoin.balanceOf( account2.address ).then( x => console.log("Player2 Balance: " + x ) );
     await yoloCoin.balanceOf( yoloBank.address ).then( x => console.log("Bank Reserve: " + x ) );
-    await ownerAsAccount.getCurrentTarget().then( x => console.log("Current Target: " + x ) );
+    await ownerAsAccount.icoTarget().then( x => console.log("Current Target: " + x ) );
 
     // owners extract tokens
     await ethers.provider.getBalance( bank.address ).then( x => console.log("Owner wealth prior withdrawal: " + x ) );
@@ -61,12 +61,12 @@ describe("YoloCoin", function () {
     await ethers.provider.getBalance( bank.address ).then( x => console.log("Owner wealth post withdrawal: " + x ) );
 
     // owners set new ICO price
-    expect(await runAsAccount1.getCurrentPrice()).to.equal(75000);
+    expect(await runAsAccount1.icoPrice()).to.equal(75000);
 
     await network.provider.send("evm_increaseTime", [101]);
     await network.provider.send("evm_mine");
     await ownerAsAccount.launch(100000, 100, 3600);
-    expect(await runAsAccount1.getCurrentPrice()).to.equal(100000);
+    expect(await runAsAccount1.icoPrice()).to.equal(100000);
 
     await network.provider.send("evm_increaseTime", [3601]);
     await network.provider.send("evm_mine");

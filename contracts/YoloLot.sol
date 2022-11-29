@@ -24,37 +24,43 @@ contract YoloLot is YoloRandomConsumer {
 
     IERC20 token;
 
+    //@ public variables - getters only
+    address[] public players;
+
+    address[] public winners;
+
+    uint256[] public rewards;
+
+    uint public totalPool;
+
+    address public yoloDealer;
+
+    address public yoloRandom;
+
+    uint public issueDate;
+
+    uint public expiryDate;
+
+    uint8 public numBigWinners;
+
+    uint8 public numSmallWinners;
+    //@}
+
+    //@ private variables - internal use only
     mapping(address=>uint) pool;
-
-    address[] players;
-
-    address[] winners;
-
-    uint256[] rewards;
-
-    uint totalPool;
-
-    address yoloDealer;
-
-    address yoloRandom;
-
-    uint issueDate;
-
-    uint expiryDate;
 
     mapping(address=>uint) rewardsDict;
 
     uint256 lastRequest;
+    //@}
 
+    //@ event definition - For Subscriber
     event YoloLotWinner(address[], uint256[]);
 
     event YoloLotDraw();
 
     event YoloLotWithDraw(address, uint256);
-
-    uint8 numBigWinners;
-
-    uint8 numSmallWinners;
+    //@}
 
     constructor(address randomAddress, address yoloCoin) {
         yoloDealer = msg.sender;
@@ -69,29 +75,31 @@ contract YoloLot is YoloRandomConsumer {
     }
 
     modifier notExpire() {
-        require(block.timestamp < expiryDate);
+        require(block.timestamp < expiryDate, "not expired yet");
         _;
     }
 
     modifier expire() {
-        require(block.timestamp >= expiryDate);
+        require(block.timestamp >= expiryDate, "already expired");
         _;
     }
 
     modifier onlyWinner() {
-        require(rewardsDict[msg.sender] > 0);
+        require(rewardsDict[msg.sender] > 0, "only winners can execute this");
         _;
     }
 
     modifier onlyRNG() {
-        require(yoloRandom == msg.sender);
+        require(yoloRandom == msg.sender, "only rng provider can execute this");
         _;
     }
 
-    function getExpiryDate() public view returns(uint) {
-        return expiryDate;
+    modifier isDrawed() {
+        require(winners.length > 0, "Not draw yet");
+        _;
     }
 
+    /// replay the contract, only can be called after contract exipred & rewards are redeemed
     function replay() public expire {
         require(totalPool == 0, "Cannot replay when game in progress");
 
@@ -125,6 +133,11 @@ contract YoloLot is YoloRandomConsumer {
         totalPool += amount;
     }
 
+    /// return pool of player
+    function viewPool() public view returns(uint256) {
+        return pool[msg.sender];
+    }
+
     /// roll the dice, anyone can roll once expired
     function roll() public expire {
         require(lastRequest == 0x0, "Can only roll once");
@@ -146,14 +159,14 @@ contract YoloLot is YoloRandomConsumer {
     }
 
     /// withdraw all the pool tokens to winners
-    function withdrawAll() public expire {
-        require(winners.length > 0, "Not draw yet");
+    function withdrawAll() public expire isDrawed{
         for (uint256 i = 0; i < winners.length; ++i)
         {
             withdrawFor(winners[i]);
         }
     }
 
+    /// withdraw for certian winner, prviate function only
     function withdrawFor(address winner) private expire {
         uint256 reward = rewardsDict[winner];
 
@@ -169,11 +182,6 @@ contract YoloLot is YoloRandomConsumer {
         emit YoloLotWithDraw(winner, reward);
     }
 
-    /// view the pool size
-    function viewPool() public view returns(uint) {
-        return pool[msg.sender];
-    }
-
     /// consume the rng, finalize the winner
     function consume(uint256 requestId_, uint256[] memory randomness) onlyRNG expire public override {
         require(lastRequest == requestId_);
@@ -181,7 +189,7 @@ contract YoloLot is YoloRandomConsumer {
         drawInternal(randomness);
     }
 
-    /// draw the winners
+    /// draw the winners, prviate function only
     function drawInternal(uint256[] memory randomness) private {
         require(winners.length == 0, "Cannot draw more than once");
 

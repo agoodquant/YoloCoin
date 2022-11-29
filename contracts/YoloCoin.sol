@@ -49,13 +49,13 @@ contract YoloBank is Ownable {
     IERC20 public token;
 
     /// represented as divisor against ETH
-    uint256 icoPrice;
+    uint256 public icoPrice;
 
     /// circulation of token released
-    uint256 icoTarget;
+    uint256 public icoTarget;
 
     /// ico end time
-    uint256 icoEndTime;
+    uint256 public icoEndTime;
 
     event Bought(uint256 amount);
 
@@ -79,18 +79,6 @@ contract YoloBank is Ownable {
 
         // owner get 15%
         token.transfer(msg.sender, totalSupply * 3 / 20);
-    }
-
-    function getCurrentPrice() public notExpire view returns(uint256) {
-        return icoPrice;
-    }
-
-    function getCurrentTarget() public notExpire view returns(uint256) {
-        return icoTarget;
-    }
-
-    function getCurrentEndTime() public view returns(uint256) {
-        return icoEndTime;
     }
 
     function launch(uint256 price, uint256 target, uint256 icoPeriod) public onlyOwner expire {
