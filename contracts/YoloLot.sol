@@ -62,8 +62,8 @@ contract YoloLot is YoloRandomConsumer {
     event YoloLotWithDraw(address, uint256);
     //@}
 
-    constructor(address randomAddress, address yoloCoin) {
-        yoloDealer = msg.sender;
+    constructor(address dealer, address randomAddress, address yoloCoin) {
+        yoloDealer = dealer;
         yoloRandom = randomAddress;
         token = IERC20(yoloCoin);
 
@@ -75,12 +75,12 @@ contract YoloLot is YoloRandomConsumer {
     }
 
     modifier notExpire() {
-        require(block.timestamp < expiryDate, "not expired yet");
+        require(block.timestamp < expiryDate, "must be not expired to execute this");
         _;
     }
 
     modifier expire() {
-        require(block.timestamp >= expiryDate, "already expired");
+        require(block.timestamp >= expiryDate, "must be expired to execute this");
         _;
     }
 
@@ -99,6 +99,20 @@ contract YoloLot is YoloRandomConsumer {
         _;
     }
 
+    function getWinners() public view returns(address[] memory, uint256[] memory) {
+        address[] memory winners_ = new address[]( winners.length );
+        uint256[] memory rewards_ = new uint256[]( rewards.length );
+
+        assert(winners_.length == rewards_.length);
+
+        for (uint8 i = 0; i < winners.length; ++i) {
+            winners_[i] = winners[i];
+            rewards_[i] = rewards[i];
+        }
+
+        return (winners_, rewards_);
+    }
+
     /// replay the contract, only can be called after contract exipred & rewards are redeemed
     function replay() public expire {
         require(totalPool == 0, "Cannot replay when game in progress");
@@ -108,8 +122,7 @@ contract YoloLot is YoloRandomConsumer {
         lastRequest = 0x0;
 
         // wipe out the players
-        for ( uint256 i = 0; i < players.length; ++i)
-        {
+        for ( uint256 i = 0; i < players.length; ++i) {
             delete pool[players[i]];
         }
 
@@ -123,8 +136,7 @@ contract YoloLot is YoloRandomConsumer {
         require(allowance >= amount, "Check the token allowance");
         token.transferFrom(msg.sender, address(this), amount);
 
-        if (pool[msg.sender] == 0)
-        {
+        if (pool[msg.sender] == 0) {
             players.push(msg.sender);
         }
 
@@ -160,8 +172,7 @@ contract YoloLot is YoloRandomConsumer {
 
     /// withdraw all the pool tokens to winners
     function withdrawAll() public expire isDrawed{
-        for (uint256 i = 0; i < winners.length; ++i)
-        {
+        for (uint256 i = 0; i < winners.length; ++i) {
             withdrawFor(winners[i]);
         }
     }
@@ -174,7 +185,7 @@ contract YoloLot is YoloRandomConsumer {
             return;
         }
 
-        token.transferFrom(address(this), winner, reward);
+        token.transfer(winner, reward);
         totalPool -= reward;
 
         delete rewardsDict[winner];
@@ -199,16 +210,14 @@ contract YoloLot is YoloRandomConsumer {
         uint256[] memory runPool = new uint256[](players.length);
 
         uint256 runSum = 0;
-        for (uint256 i = 0; i < players.length; ++i)
-        {
+        for (uint256 i = 0; i < players.length; ++i) {
             runSum += pool[players[i]];
             runPool[i] = runSum;
         }
 
         // 89.7% goes to big winners
         uint256 big_reward = totalPool * 897 / (1000 * numBigWinners);
-        for (uint8 i = 0; i < numBigWinners; ++i)
-        {
+        for (uint8 i = 0; i < numBigWinners; ++i) {
             uint256 random_i = randomness[i] % totalPool;
             uint256 win_i = findUpperBound( runPool, random_i );
 
@@ -218,8 +227,7 @@ contract YoloLot is YoloRandomConsumer {
 
         // 10% goes to small winners
         uint small_reward = totalPool / (10 * numSmallWinners);
-        for (uint8 i = numBigWinners; i < totalWinners; ++i)
-        {
+        for (uint8 i = numBigWinners; i < totalWinners; ++i) {
             uint256 random_i = randomness[i] % totalPool;
             uint256 win_i = findUpperBound( runPool, random_i );
 
@@ -233,9 +241,8 @@ contract YoloLot is YoloRandomConsumer {
         rewards.push( dealer_cut );
 
         // iterate through the array for mapping
-        for (uint8 i = 0; i < winners.length; ++i)
-        {
-            rewardsDict[winners[i]] = rewards[i];
+        for (uint8 i = 0; i < winners.length; ++i) {
+            rewardsDict[winners[i]] += rewards[i];
         }
 
         emit YoloLotWinner(winners, rewards);
@@ -283,7 +290,7 @@ contract YoloLot is YoloRandomConsumer {
 contract YoloLotFactory
 {
     function createYoloLottery(address rng, address yoloCoin) public returns(address) {
-        YoloLot yoloLot = new YoloLot(rng, yoloCoin);
+        YoloLot yoloLot = new YoloLot(msg.sender, rng, yoloCoin);
         return address(yoloLot);
     }
 }

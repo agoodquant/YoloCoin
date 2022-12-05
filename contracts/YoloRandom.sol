@@ -101,7 +101,6 @@ contract YoloRandomMockup is YoloRandom {
     event RandomNumberRequested(uint256);
 
     function requestRandomNumber(uint16 numRandom) onlyConsumer public override returns (uint256) {
-        require(numRandom == 1);
         if (testRandom.length != numRandom)
         {
             testRandom = new uint256[](numRandom);
